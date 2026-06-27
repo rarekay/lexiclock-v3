@@ -1528,3 +1528,115 @@ body.light .mode-card { background: #FFFFFF; }
 }
 .stats-row:last-child { border-bottom: none; }
 .stats-row span:last-child { color: var(--cream); font-weight: 500; }
+
+/* ── Bingo tiles (single row) ── */
+.bingo-letters-row {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.bingo-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px; height: 38px;
+  background: #2E2E45;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 500;
+  color: #C084FC;
+  border: 1.5px solid #3A3A55;
+}
+.bingo-also {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.bingo-result-word {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: 4px;
+  margin-bottom: 8px;
+}
+
+/* ── Daily puzzle ── */
+.daily-header { text-align: center; margin-bottom: 16px; }
+.daily-num { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.daily-date { font-size: 16px; font-weight: 600; color: var(--cream); margin-bottom: 8px; }
+.daily-diff-tag {
+  display: inline-block;
+  font-size: 12px; font-weight: 600;
+  padding: 3px 12px;
+  border-radius: 20px;
+}
+.diff-easy { background: #0D2B1A; color: #4ADE80; }
+.diff-medium { background: #2B2200; color: #FBBF24; }
+.diff-hard { background: #2B1200; color: #F97316; }
+.diff-veryhard { background: #2B0D0D; color: #E05252; }
+.daily-timer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.daily-elapsed {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  color: var(--amber);
+}
+.daily-attempts-count { font-size: 13px; color: var(--muted); }
+.daily-solved-word {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: 4px;
+  margin: 12px 0 8px;
+}
+.daily-motivation {
+  font-size: 15px;
+  color: var(--cream);
+  font-weight: 500;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.daily-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.daily-solved-msg {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+/* ── Flash categories ── */
+.flash-categories { display: flex; flex-direction: column; gap: 8px; }
+.flash-cat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: border-color 0.15s;
+}
+.flash-cat-card:active { opacity: 0.85; }
+.flash-cat-card:hover { border-color: #C084FC; }
+.flash-cat-icon { font-size: 24px; flex-shrink: 0; }
+.flash-cat-info { flex: 1; }
+.flash-cat-title { font-size: 14px; font-weight: 600; color: var(--cream); margin-bottom: 2px; }
+.flash-cat-desc { font-size: 12px; color: var(--muted); }
+.flash-card-pts {
+  font-size: 13px;
+  color: var(--amber);
+  margin-bottom: 8px;
+  font-family: var(--font-mono);
+}
+.flash-card-reveal-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
