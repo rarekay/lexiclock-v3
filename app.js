@@ -590,8 +590,11 @@ function applyTheme(light) {
 function initSettings() {
   document.getElementById('toggle-sound').checked = state.settings.sound;
   document.getElementById('toggle-vibration').checked = state.settings.vibration;
-  document.getElementById('toggle-theme').checked = state.settings.lightMode || false;
-  applyTheme(state.settings.lightMode || false);
+  const themeToggle = document.getElementById('toggle-theme');
+  if (themeToggle) {
+    themeToggle.checked = state.settings.lightMode || false;
+    applyTheme(state.settings.lightMode || false);
+  }
 
   document.getElementById('toggle-sound').addEventListener('change', e => {
     state.settings.sound = e.target.checked;
@@ -601,11 +604,13 @@ function initSettings() {
     state.settings.vibration = e.target.checked;
     saveSettings();
   });
-  document.getElementById('toggle-theme').addEventListener('change', e => {
-    state.settings.lightMode = e.target.checked;
-    applyTheme(e.target.checked);
-    saveSettings();
-  });
+  if (themeToggle) {
+    themeToggle.addEventListener('change', e => {
+      state.settings.lightMode = e.target.checked;
+      applyTheme(e.target.checked);
+      saveSettings();
+    });
+  }
 }
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
@@ -638,44 +643,93 @@ function dismissOnboarding() {
   document.getElementById('onboarding').classList.add('hidden');
 }
 
+const APP_VERSION = 'v3.0';
+
 // ── Update Detection ──────────────────────────────────────────────────────────
 let newWorker = null;
+
+// Force reload if cached version is old — fixes Safari stale cache issue
+// Fix onboarding flash on reload
+if (localStorage.getItem('lc_onboarded')) {
+  document.documentElement.style.setProperty('--ob-display', 'none');
+}
+
+function checkAppVersion() {
+  const cached = localStorage.getItem('lc_app_version');
+  if (cached && cached !== APP_VERSION) {
+    localStorage.setItem('lc_app_version', APP_VERSION);
+    // Clear all caches and reload
+    if ('caches' in window) {
+      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+        .then(() => window.location.reload());
+    } else {
+      window.location.reload();
+    }
+    return;
+  }
+  localStorage.setItem('lc_app_version', APP_VERSION);
+}
 
 function applyUpdate() {
   if (newWorker) {
     newWorker.postMessage({ action: 'skipWaiting' });
   } else {
-    window.location.reload();
+    // Fallback — clear cache and reload
+    if ('caches' in window) {
+      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+        .then(() => window.location.reload());
+    } else {
+      window.location.reload();
+    }
   }
 }
 
 function registerSW() {
   if (!('serviceWorker' in navigator)) return;
+
   navigator.serviceWorker.register('/sw.js').then(reg => {
     const showBanner = (worker) => {
       newWorker = worker;
       document.getElementById('update-banner').classList.add('visible');
     };
-    if (reg.waiting) showBanner(reg.waiting);
+
+    // New SW already waiting when page loads
+    if (reg.waiting) {
+      showBanner(reg.waiting);
+    }
+
+    // New SW found while page is open
     reg.addEventListener('updatefound', () => {
       const installing = reg.installing;
       installing.addEventListener('statechange', () => {
-        if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-          showBanner(installing);
+        if (installing.state === 'installed') {
+          if (navigator.serviceWorker.controller) {
+            // Update available — show banner
+            showBanner(installing);
+          }
+          // If no controller this is a fresh install — no banner needed
         }
       });
     });
-    // Poll every 60s to catch updates on long sessions
+
+    // Poll for updates every 60 seconds
     setInterval(() => reg.update(), 60000);
+
   }).catch(() => {});
 
+  // When controller changes (after skipWaiting), reload to get fresh content
+  // We use a flag to prevent this firing on initial load
+  let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
     window.location.reload();
   });
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  checkAppVersion();
   loadSettings();
   initSettings();
   initOnboarding();

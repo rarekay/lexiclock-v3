@@ -81,64 +81,37 @@ async function runAnagram() {
   const fixed = letters.filter(l => l !== '?');
   const results = new Set();
 
-  // For large inputs use substring matching instead of full permutations
-  // Permutation approach works well up to 10 letters; beyond that use containment check
-  if (input.replace(/\?/g, '').length <= 10 && blanks === 0) {
-    // Full permutation for shorter inputs
-    function permute(arr, current = '') {
-      if (current.length >= 2 && explore.wordLists.has(current)) results.add(current);
-      if (current.length === arr.length) return;
-      const used = new Set();
-      for (let i = 0; i < arr.length; i++) {
-        if (used.has(arr[i])) continue;
-        used.add(arr[i]);
-        permute([...arr.slice(0,i), ...arr.slice(i+1)], current + arr[i]);
+  // Build letter frequency map from fixed letters
+  const letterCount = {};
+  fixed.forEach(l => { letterCount[l] = (letterCount[l] || 0) + 1; });
+
+  // Single unified algorithm — letter count matching
+  // Works correctly for ALL input lengths and ALL word lengths
+  for (const word of explore.wordLists) {
+    // Word must be at least 2 letters and no longer than input
+    if (word.length < 2 || word.length > input.length) continue;
+
+    // Count letters needed for this word
+    const needed = {};
+    for (const ch of word) {
+      needed[ch] = (needed[ch] || 0) + 1;
+    }
+
+    // Check if we have enough letters (using blanks for shortfall)
+    let blanksNeeded = 0;
+    let possible = true;
+    for (const [ch, count] of Object.entries(needed)) {
+      const have = letterCount[ch] || 0;
+      if (have < count) {
+        blanksNeeded += count - have;
+        if (blanksNeeded > blanks) { possible = false; break; }
       }
     }
-    permute(fixed);
-  } else {
-    // For longer inputs: find all words that can be formed from available letters
-    const letterCount = {};
-    fixed.forEach(l => { letterCount[l] = (letterCount[l] || 0) + 1; });
 
-    for (const word of explore.wordLists) {
-      if (word.length < 2 || word.length > input.length) continue;
-      const needed = {};
-      let needBlanks = 0;
-      let valid = true;
-
-      for (const ch of word) {
-        needed[ch] = (needed[ch] || 0) + 1;
-      }
-      for (const [ch, count] of Object.entries(needed)) {
-        const have = letterCount[ch] || 0;
-        if (have < count) {
-          needBlanks += count - have;
-        }
-      }
-      if (needBlanks <= blanks) results.add(word);
-    }
+    if (possible) results.add(word);
   }
 
-  // Handle blanks for shorter inputs
-  if (blanks > 0 && fixed.length <= 9) {
-    results.clear();
-    const letterCount = {};
-    fixed.forEach(l => { letterCount[l] = (letterCount[l] || 0) + 1; });
-    for (const word of explore.wordLists) {
-      if (word.length < 2 || word.length > input.length) continue;
-      const needed = {};
-      let needBlanks = 0;
-      for (const ch of word) needed[ch] = (needed[ch] || 0) + 1;
-      for (const [ch, count] of Object.entries(needed)) {
-        const have = letterCount[ch] || 0;
-        if (have < count) needBlanks += count - have;
-      }
-      if (needBlanks <= blanks) results.add(word);
-    }
-  }
-
-  // Group by length
+  // Group by length, sort longest first
   const grouped = {};
   [...results].forEach(word => {
     const len = word.length;
@@ -152,13 +125,31 @@ async function runAnagram() {
   if (lengths.length === 0) {
     container.innerHTML = '<div class="explore-empty">No valid words found from those letters.</div>';
   } else {
+    // Function to highlight letters covered by blanks
+    function highlightBlanks(word, fixedLetters, numBlanks) {
+      if (numBlanks === 0) return `<span class="anagram-word">${word}</span>`;
+      const avail = {};
+      fixedLetters.forEach(l => { avail[l] = (avail[l] || 0) + 1; });
+      let highlighted = '';
+      for (const ch of word) {
+        if (avail[ch] && avail[ch] > 0) {
+          avail[ch]--;
+          highlighted += ch;
+        } else {
+          // Amber inline — no extra element, just a styled character
+          highlighted += `<span style="color:#F5A623;font-size:inherit">${ch}</span>`;
+        }
+      }
+      return `<span class="anagram-word">${highlighted}</span>`;
+    }
+
     let html = `<div class="anagram-count">${results.size} word${results.size !== 1 ? 's' : ''} found</div>`;
     lengths.forEach(len => {
       const words = grouped[len].sort();
       html += `<div class="anagram-group">`;
       html += `<div class="anagram-group-label">${len} letters (${words.length})</div>`;
       html += `<div class="anagram-words">${words.map(w =>
-        `<span class="anagram-word">${w}</span>`).join('')}</div>`;
+        highlightBlanks(w, fixed, blanks)).join('')}</div>`;
       html += `</div>`;
     });
     container.innerHTML = html;
@@ -288,19 +279,45 @@ async function renderTournament() {
 function initExplore() {
   loadExploreData().then(() => renderWotd());
 
-  document.getElementById('anagram-input').addEventListener('keydown', e => {
+  const anagramInput = document.getElementById('anagram-input');
+  const patternInput = document.getElementById('pattern-input');
+
+  anagramInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') runAnagram();
   });
-  document.getElementById('anagram-input').addEventListener('input', e => {
+  anagramInput.addEventListener('input', e => {
     const clean = e.target.value.toUpperCase().replace(/[^A-Z?]/g, '');
     e.target.value = clean;
+    // Show/hide clear button
+    const btn = document.getElementById('anagram-clear');
+    if (btn) btn.style.display = clean.length > 0 ? 'flex' : 'none';
   });
 
-  document.getElementById('pattern-input').addEventListener('keydown', e => {
+  patternInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') runPattern();
   });
-  document.getElementById('pattern-input').addEventListener('input', e => {
+  patternInput.addEventListener('input', e => {
     const clean = e.target.value.toUpperCase().replace(/[^A-Z?]/g, '');
     e.target.value = clean;
+    const btn = document.getElementById('pattern-clear');
+    if (btn) btn.style.display = clean.length > 0 ? 'flex' : 'none';
   });
 }
+
+function clearAnagramInput() {
+  const input = document.getElementById('anagram-input');
+  if (input) { input.value = ''; input.focus(); }
+  const btn = document.getElementById('anagram-clear');
+  if (btn) btn.style.display = 'none';
+  document.getElementById('anagram-results').innerHTML = '';
+}
+
+function clearPatternInput() {
+  const input = document.getElementById('pattern-input');
+  if (input) { input.value = ''; input.focus(); }
+  const btn = document.getElementById('pattern-clear');
+  if (btn) btn.style.display = 'none';
+  document.getElementById('pattern-results').innerHTML = '';
+}
+
+/* Note: add this to style.css */
