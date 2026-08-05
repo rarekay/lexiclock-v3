@@ -1674,3 +1674,9 @@ body.light .mode-card { background: #FFFFFF; }
   border-radius: 50%;
 }
 .input-clear-btn:hover { background: var(--surface2); color: var(--cream); }
+/* ── Bingo/Daily: show what the player typed ── */
+.bingo-your-guess {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
