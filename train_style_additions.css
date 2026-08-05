@@ -1,0 +1,7 @@
+
+/* ── Bingo/Daily: show what the player typed ── */
+.bingo-your-guess {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
