@@ -1,58 +1,84 @@
-const CACHE = 'lexiclock-v17';
-const ASSETS = [
-  '/','/index.html','/style.css','/app.js','/explore.js','/train.js',
-  '/manifest.json','/icons/icon.svg',
-  '/words/csw.txt','/words/nwl2023.txt','/words/wotd.json','/words/invalid_words.json'
+const CACHE = 'lexiclock-v30';
+
+// Everything the app needs to run offline. Each file is cached on its own, so one
+// wrong filename can't stop the others from being saved.
+const CORE = [
+  '/', '/index.html', '/style.v3.0.0.css',
+  '/app.v3.0.0.js', '/explore.v3.0.0.js', '/train.v3.0.0.js',
+  '/manifest.json',
+  '/icons/icon.svg', '/icons/icon-192.png', '/icons/apple-touch-icon.png', '/icons/favicon-32.png',
+  '/words/csw.txt', '/words/nwl2023.txt', '/words/wotd.json', '/words/invalid_words.json'
+];
+
+// The icon font (pinned version, matches index.html)
+const ICONS = 'https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.49.0/dist/';
+const EXTRA = [
+  ICONS + 'tabler-icons.min.css',
+  ICONS + 'fonts/tabler-icons.woff2?v3.49.0'
 ];
 
 self.addEventListener('install', e => {
-  // Cache all assets then wait — do NOT skipWaiting automatically
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS))
+    caches.open(CACHE).then(cache =>
+      Promise.all([...CORE, ...EXTRA].map(url =>
+        fetch(url, { cache: 'reload' })
+          .then(res => {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return cache.put(url, res);
+          })
+          .catch(err => console.warn('[sw] could not cache', url, err.message || err))
+      ))
+    )
   );
 });
 
 self.addEventListener('activate', e => {
-  // Clean old caches but do NOT claim clients automatically
-  // Claiming immediately causes the controllerchange reload race condition
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
     )
   );
-  // Only claim if this is a fresh install (no existing controller)
-  // This prevents the banner-then-instant-reload bug
-  if (!self.registration.active) {
-    self.clients.claim();
-  }
 });
 
 self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
-  const isHTML = e.request.destination === 'document' ||
-    url.pathname === '/' || url.pathname.endsWith('.html');
-  if (isHTML) {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+
+  // Pages: fresh when online, cached index.html when offline
+  if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request)
+      fetch(req)
         .then(res => {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then(c => c.put('/index.html', copy));
+          }
           return res;
         })
-        .catch(() => caches.match(e.request))
+        .catch(() => caches.match('/index.html').then(r => r || caches.match('/')))
     );
-  } else {
-    e.respondWith(
-      caches.match(e.request).then(cached => cached || fetch(e.request))
-    );
+    return;
   }
+
+  // Everything else: cache first, then network (and remember it)
+  e.respondWith(
+    caches.match(req, { ignoreSearch: url.origin === self.location.origin }).then(hit => {
+      if (hit) return hit;
+      return fetch(req).then(res => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(req, copy));
+        }
+        return res;
+      });
+    })
+  );
 });
 
-// Only skip waiting when user explicitly taps Reload in the banner
 self.addEventListener('message', e => {
-  if (e.data?.action === 'skipWaiting') {
+  if (e.data && e.data.action === 'skipWaiting') {
     self.skipWaiting();
-    // After skipWaiting, claim all clients so they get the update
     self.clients.claim();
   }
 });
